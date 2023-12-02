@@ -889,22 +889,8 @@ def push_to_github():
         subprocess.run(['git', 'pull', 'origin', 'master'])
         subprocess.run(['git', 'push', 'origin', 'master'])  # Replace 'main' with your branch name
         # Add the remote 'origin' with the GitHub repository URL and access token
-        # Replace <GitHub_Repository_URL> with the actual URL of your GitHub repository
-        if 'origin' in [remote.name for remote in repo.remotes]:
-            # If 'origin' exists, remove it
-            repo.git.remote('rm', 'origin') 
-        # Add the new origin with the URL that includes the access token
-        remote_url = f"https://tomurashigaraki22:{access_token}@github.com/tomurashigaraki22/EcommerceServer.git"
-        repo.git.remote('add', 'origin', f"https://tomurashigaraki22:{access_token}@github.com/tomurashigaraki22/EcommerceServer.git")  # 
-        repo.git.config('user.email', 'emmanuelhudson355@gmail.com')  # Replace with your email
-        repo.git.config('user.name', 'tomurashigaraki22')  # Replace with your name
 
 
-        # Add, commit, and push changes
-        repo.git.add('--all')
-        repo.git.commit('-m', 'Automateds commit')
-        push_output = repo.git.push('origin', 'master')  # Replace 'main' with your branch name
-        print('Git Push Output:', push_output)
 
         return jsonify({'message': 'Changes pushed to GitHub', 'status': 200, 'one': str(push_output)})
 
