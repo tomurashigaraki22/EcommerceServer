@@ -884,10 +884,11 @@ def push_to_github():
         subprocess.run(['git', 'remote', 'add', 'origin', f"https://tomurashigaraki22:{access_token}@github.com/tomurashigaraki22/EcommerceServer.git"])
 
         # Add, commit, and push changes
-        subprocess.run(['git', 'add', '.'])
+        subprocess.run(['git', 'add', 'index.py', 'items/', 'ecDB.db'])  # Add specific files and folders
+        subprocess.run(['git', 'reset', '--', '.env'])  # Exclude the .env file
         subprocess.run(['git', 'commit', '-m', 'Automated commit'])
         subprocess.run(['git', 'pull', 'origin', 'master'])
-        subprocess.run(['git', 'push', 'origin', 'master'])  # Replace 'main' with your branch name
+        subprocess.run(['git', 'push', 'origin', 'master'])
         # Add the remote 'origin' with the GitHub repository URL and access token
 
 
