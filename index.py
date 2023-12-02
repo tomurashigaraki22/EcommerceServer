@@ -875,7 +875,8 @@ def push_to_github():
             # If 'origin' exists, remove it
             repo.git.remote('rm', 'origin') 
         # Add the new origin with the URL that includes the access token
-        repo.create_remote('origin', url=f"https://tomurashigaraki22:{access_token}@github.com/tomurashigaraki22/EcommerceServer.git")  # 
+        remote-url = f"https://tomurashigaraki22:{access_token}@github.com/tomurashigaraki22/EcommerceServer.git"
+        repo.create_remote('origin', url=remote_url)  # 
         repo.git.config('user.email', 'emmanuelhudson355@gmail.com')  # Replace with your email
         repo.git.config('user.name', 'tomurashigaraki22')  # Replace with your name
 
