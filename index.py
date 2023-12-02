@@ -884,9 +884,10 @@ def push_to_github():
         # Add, commit, and push changes
         repo.git.add('--all')
         repo.git.commit('-m', 'Automateds commit')
-        repo.git.push('origin', 'master')  # Replace 'main' with your branch name
+        push_output = repo.git.push('origin', 'master')  # Replace 'main' with your branch name
+        print('Git Push Output:', push_output)
 
-        return jsonify({'message': 'Changes pushed to GitHub', 'status': 200})
+        return jsonify({'message': 'Changes pushed to GitHub', 'status': 200, 'one': str(push_output)})
 
     except Exception as e:
         return jsonify({'message': 'Error pushing to GitHub', 'status': 500, 'exception': str(e)})
