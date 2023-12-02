@@ -891,4 +891,4 @@ def push_to_github():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5442, use_reloader=True)
+    app.run(host='0.0.0.0', port=4442, use_reloader=True)
