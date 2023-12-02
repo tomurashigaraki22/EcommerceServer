@@ -885,7 +885,7 @@ def push_to_github():
 
         # Add, commit, and push changes
         subprocess.run(['git', 'add', '.'])  # Add specific files and folders
-        subprocess.run(['git', 'commit', '-m', 'Automated commit'])
+        subprocess.run(['git', 'commit', '-m', 'Automated commitss'])
         subprocess.run(['git', 'pull', 'origin', 'master'])
         subprocess.run(['git', 'push', 'origin', 'master'])
         # Add the remote 'origin' with the GitHub repository URL and access token
