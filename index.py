@@ -875,7 +875,7 @@ def push_to_github():
             subprocess.run(['git', 'remote', 'rm', 'origin'], check=True)
         except subprocess.CalledProcessError:
             # If 'origin' exists, remove it
-            subprocess.run(['git', 'remote', 'add', 'origin', f"https://tomurashigaraki22:{access_token}@github.com/tomurashigaraki22/EcommerceServer.git"])
+            subprocess.run(['git', 'remote', 'add', 'origin', f"https://tomurashigaraki22:{access_token}@github.com/tomurashigaraki22/EcommerceServers"])
 
         # Add, commit, and push changes
         subprocess.run(['git', 'add', '.'])
