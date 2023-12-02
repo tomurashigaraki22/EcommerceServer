@@ -884,6 +884,7 @@ def push_to_github():
         subprocess.run(['git', 'remote', 'add', 'origin', f"https://tomurashigaraki22:{access_token}@github.com/tomurashigaraki22/EcommerceServer.git"])
 
         # Add, commit, and push changes
+        subprocess.run(['git', 'checkout', '--', '.env'])
         subprocess.run(['git', 'add', 'index.py', 'items/', 'ecDB.db'])  # Add specific files and folders
         subprocess.run(['git', 'reset', '--', '.env'])  # Exclude the .env file
         subprocess.run(['git', 'commit', '-m', 'Automated commit'])
