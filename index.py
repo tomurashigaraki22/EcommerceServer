@@ -858,7 +858,7 @@ def downloaditems(password):
     except Exception as e:
         return jsonify({'message': 'Error while downloading the items folder', 'status': 500, 'Exception': str(e)})
 
-@app.route('/push_to_github', methods=['GET'])
+@app.route('/push-to-github', methods=['GET'])
 def push_to_github():
     try:
         # Replace '/path/to/your/repo' with the actual path to your Git repository
@@ -868,14 +868,20 @@ def push_to_github():
         # Hardcode the GitHub access token
         access_token = os.getenv('GITHUB_ACCESS_TOKEN')
         print('Do you want this')
-        print('I dosss')
+        print('I do')
 
-        # Check if 'origin' remote already exists
+        # Initialize Git repository if not already initialized
+        if not os.path.exists(os.path.join(repo_path, '.git')):
+            subprocess.run(['git', 'init'], check=True)
+
+        # Remove 'origin' remote if it exists
         try:
-            subprocess.run(['git', 'remote', 'rm', 'origin'], check=True)
+            subprocess.run(['git', 'remote', 'remove', 'origin'], check=True)
         except subprocess.CalledProcessError:
-            # If 'origin' exists, remove it
-            subprocess.run(['git', 'remote', 'add', 'origin', f"https://tomurashigaraki22:{access_token}@github.com/tomurashigaraki22/EcommerceServer.git"])
+            pass  # Ignore if 'origin' does not exist
+
+        # Add 'origin' remote with the new URL
+        subprocess.run(['git', 'remote', 'add', 'origin', f"https://tomurashigaraki22:{access_token}@github.com/tomurashigaraki22/EcommerceServer.git"])
 
         # Add, commit, and push changes
         subprocess.run(['git', 'add', '.'])
