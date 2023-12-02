@@ -892,7 +892,7 @@ def push_to_github():
 
 
 
-        return jsonify({'message': 'Changes pushed to GitHub', 'status': 200, 'one': str(push_output)})
+        return jsonify({'message': 'Changes pushed to GitHub', 'status': 200})
 
     except subprocess.CalledProcessError as e:
         return jsonify({'message': 'Error pushing to GitHub', 'status': 500, 'exception': str(e)})
