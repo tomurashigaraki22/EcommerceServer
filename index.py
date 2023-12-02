@@ -886,6 +886,7 @@ def push_to_github():
         # Add, commit, and push changes
         subprocess.run(['git', 'add', '.'])
         subprocess.run(['git', 'commit', '-m', 'Automated commit'])
+        subprocess.run(['git', 'pull', 'origin', 'master'])
         subprocess.run(['git', 'push', 'origin', 'master'])  # Replace 'main' with your branch name
 
         return jsonify({'message': 'Changes pushed to GitHub', 'status': 200})
