@@ -871,10 +871,9 @@ def push_to_github():
 
         # Add the remote 'origin' with the GitHub repository URL and access token
         # Replace <GitHub_Repository_URL> with the actual URL of your GitHub repository
-        try:
-            repo.git.remote('rm', 'origin')
-        except GitCommandError:
-            repo.git.remote('add', 'origin', f"https://tomurashigaraki22:{access_token}@github.com/tomurashigaraki22/EcommerceServer.git")  # 
+        if 'origin' in [remote.name for remote in repo.remotes]:
+            # If 'origin' exists, remove it
+            repo.git.remote('rm', 'origin') 
         # Add the new origin with the URL that includes the access token
         repo.git.remote('add', 'origin', f"https://tomurashigaraki22:{access_token}@github.com/tomurashigaraki22/EcommerceServer.git")  # 
  
