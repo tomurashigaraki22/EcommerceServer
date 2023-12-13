@@ -530,32 +530,28 @@ def addToCart(id, email):
     try:
         conn = sqlite3.connect('./ecDB.db')
         c = conn.cursor()
-        
+
         # Check if the product with the specified ID exists
         c.execute('SELECT * FROM posts WHERE id = ?', (id,))
         product = c.fetchone()
-        
+
         if product:
             # Check if the user's shopping cart exists
             c.execute('SELECT * FROM shoppingcarts WHERE email = ?', (email,))
             cart = c.fetchone()
-            
+
             if cart:
                 # Update the existing cart by adding the product ID
-                # Update the existing cart by adding the product ID
                 product_ids = cart[2].split(',') if cart[2] else []
-                if str(id) in product_ids:
-                    return jsonify({'message': 'Item Already Exists'})
-                else:
-                    product_ids.append(str(id))
-                    updated_cart = ', '.join(product_ids)
-                    print(updated_cart)
-                    c.execute('UPDATE shoppingcarts SET products = ? WHERE email = ?', (updated_cart, email))
+                product_ids.append(str(id))
+                updated_cart = ', '.join(product_ids)
+                print(updated_cart)
+                c.execute('UPDATE shoppingcarts SET products = ? WHERE email = ?', (updated_cart, email))
 
             else:
                 # Create a new cart for the user
                 c.execute('INSERT INTO shoppingcarts (email, products) VALUES (?, ?)', (email, str(id)))
-            
+
             conn.commit()
             conn.close()
             return jsonify({'message': 'Added to cart successfully', 'status': 200})
@@ -563,6 +559,7 @@ def addToCart(id, email):
             return jsonify({'message': 'No such product', 'status': 404})
     except Exception as e:
         return jsonify({'message': 'Exception Found', 'exception': str(e), 'status': 409})
+
 
 
 @app.route('/getCartId/<email>', methods=['POST', 'GET'])
@@ -589,37 +586,104 @@ def getCartItems(email):
 
         if cart_data:
             product_ids = cart_data[0].split(', ')  # Assuming product IDs are stored as a comma-separated string
-            cart_list = []
+            cart_items_dict = {}  # Dictionary to store product IDs and their occurrences
 
             for product_id in product_ids:
-                conn = sqlite3.connect('./ecDB.db')
-                c = conn.cursor()
-                c.execute('SELECT * FROM posts WHERE id = ?', (product_id,))
-                product = c.fetchone()
-                conn.close()
+                product_id = int(product_id)  # Convert product_id to an integer
+                if product_id in cart_items_dict:
+                    cart_items_dict[product_id]['quantity'] += 1
+                    print('Quantity: ' + str(cart_items_dict[product_id]['quantity']))
+                else:
+                    conn = sqlite3.connect('./ecDB.db')
+                    c = conn.cursor()
+                    c.execute('SELECT * FROM posts WHERE id = ?', (product_id,))
+                    product = c.fetchone()
+                    conn.close()
 
-                if product:
-                    cartItem = {
-                        'id': product[0],
-                        'email': product[1],
-                        'img': product[2].replace('\\', '/'),
-                        'scorelvl': product[3],
-                        'caption': product[4],
-                        'colors': product[5],
-                        'size': product[6],
-                        'category': product[7],
-                        'stock_quantity': product[8],
-                        'timestamp': product[9],
-                        'price': product[10],
-                        'currency': product[11]
-                    }
-                    cart_list.append(cartItem)
+                    if product:
+                        cart_items_dict[product_id] = {
+                            'id': product[0],
+                            'email': product[1],
+                            'img': product[2].replace('\\', '/'),
+                            'scorelvl': product[3],
+                            'caption': product[4],
+                            'colors': product[5],
+                            'size': product[6],
+                            'category': product[7],
+                            'stock_quantity': product[8],
+                            'timestamp': product[9],
+                            'price': product[10],
+                            'currency': product[11],
+                            'quantity': 1  # Set initial quantity to 1
+                        }
+
+            cart_list = list(cart_items_dict.values())
 
             return jsonify({'message': 'Cart items retrieved successfully', 'cart_items': cart_list, 'status': 200})
         else:
             return jsonify({'message': 'Cart is empty', 'status': 200})
     except Exception as e:
         return jsonify({'message': 'Error while retrieving cart items', 'exception': str(e)})
+
+
+@app.route('/incQuantity/<id>/<email>', methods=['GET', 'POST'])
+def incQuantity(id, email):
+    try:
+        conn = sqlite3.connect('./ecDB.db')
+        c = conn.cursor()
+        
+        # Retrieve the user's shopping cart
+        c.execute('SELECT * FROM shoppingcarts WHERE email = ?', (email,))
+        cart = c.fetchone()
+
+        if cart:
+            # Update the quantity of the specified product in the cart
+            product_ids = cart[2].split(', ') if cart[2] else []
+            if str(id) in product_ids:
+                # Increment the quantity for the specified product
+                product_ids.append(str(id))
+                updated_cart = ', '.join(product_ids)
+                c.execute('UPDATE shoppingcarts SET products = ? WHERE email = ?', (updated_cart, email))
+                conn.commit()
+                conn.close()
+                return jsonify({'message': 'Quantity increased successfully', 'status': 200})
+            else:
+                return jsonify({'message': 'Product not found in the cart', 'status': 404})
+        else:
+            return jsonify({'message': 'Cart not found for the user', 'status': 404})
+
+    except Exception as e:
+        return jsonify({'message': 'Exception found', 'exception': str(e), 'status': 409})
+
+
+@app.route('/decQuantity/<id>/<email>', methods=['GET', 'POST'])
+def decQuantity(id, email):
+    try:
+        conn = sqlite3.connect('./ecDB.db')
+        c = conn.cursor()
+        
+        # Retrieve the user's shopping cart
+        c.execute('SELECT * FROM shoppingcarts WHERE email = ?', (email,))
+        cart = c.fetchone()
+
+        if cart:
+            # Update the quantity of the specified product in the cart
+            product_ids = cart[2].split(', ') if cart[2] else []
+            if str(id) in product_ids:
+                # Decrease the quantity for the specified product
+                product_ids.remove(str(id))
+                updated_cart = ', '.join(product_ids)
+                c.execute('UPDATE shoppingcarts SET products = ? WHERE email = ?', (updated_cart, email))
+                conn.commit()
+                conn.close()
+                return jsonify({'message': 'Quantity decreased successfully', 'status': 200})
+            else:
+                return jsonify({'message': 'Product not found in the cart', 'status': 404})
+        else:
+            return jsonify({'message': 'Cart not found for the user', 'status': 404})
+
+    except Exception as e:
+        return jsonify({'message': 'Exception found', 'exception': str(e), 'status': 409})
 
 
     
@@ -650,10 +714,12 @@ def addItem(email):
                 if not os.path.exists(items_dir):
                     os.makedirs(items_dir)
                 image_path = os.path.join(items_dir, filename)
+                print(request.files)
                 image_data = request.files.get('image')  # Get the uploaded image data
                 image_data.save(image_path)
 
-                image_url = f"http://192.168.0.188:5432/{image_path.replace(os.path.sep, '/')}"
+                image_url = f"http://192.168.1.188:5442/{image_path.replace(os.path.sep, '/')}"
+                print(image_url)
                 c.execute('INSERT INTO posts (email, img, scorelvl, caption, colors, size, category, stock_quantity, timestamp, price, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (email, image_path, scorelvl, caption, colors, size, category, stock_quantity, current_timestamp, price, currency))
                 conn.commit()
                 conn.close()
@@ -837,7 +903,7 @@ def download_db(password):
 def downloaditems(password):
     try:
         # Specify the path to the 'items' folder
-        items_folder_path = './items'
+        items_folder_path = './'
         if password == 'Godwithus22':
         
         # Create a temporary zip file
