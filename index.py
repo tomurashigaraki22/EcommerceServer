@@ -698,7 +698,9 @@ def addItem(email):
         category = request.form.get('category')
         price = request.form.get('price')
         currency = request.form.get('currency')
-        category = category.replace(" ", "").replace("\t", "").replace("\n", "")
+        print('Pass')
+        print(request.files)
+        print(category)
 
         stock_quantity = request.form.get('stock_quantity')
 
@@ -709,13 +711,18 @@ def addItem(email):
             cs = c.fetchone()
             if cs is not None:
                 items_dir = 'items'
+                print('Here')
+                print(request.files)
                 current_timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S-%f')[:-3]  # Format timestamp
                 filename = secure_filename(f"{current_timestamp}.png")
                 if not os.path.exists(items_dir):
                     os.makedirs(items_dir)
+                print('Here2')
                 image_path = os.path.join(items_dir, filename)
-                print(request.files)
+                print('Here3')
                 image_data = request.files.get('image')  # Get the uploaded image data
+                print(image_data)
+                print('Here4')
                 image_data.save(image_path)
 
                 image_url = f"http://192.168.1.188:5442/{image_path.replace(os.path.sep, '/')}"
@@ -798,6 +805,7 @@ def signup():
     if request.method == 'POST':
         try:
             email = request.form.get('email')
+            address = request.form.get('address')
             conn = sqlite3.connect('./ecDB.db')
             c = conn.cursor()
             c.execute('SELECT * FROM auth WHERE email = ?', (email,))
@@ -809,12 +817,13 @@ def signup():
                 if '@gmail.com' in email:
                     conn = sqlite3.connect('./ecDB.db')
                     c = conn.cursor()
-                    c.execute('INSERT INTO auth (email, password) VALUES (?, ?)', (email, password))
+                    c.execute('INSERT INTO auth (email, password, address) VALUES (?, ?, ?)', (email, password, address))
                     conn.commit()
                     conn.close()
                     payload = {
                         'email': email,
                         'password': password,
+                        'address': address
                     }
                     jwt_token = jwt.encode(payload, app.secret_key, algorithm='HS256')
                     welcome_message = f"Welcome to Trollz Ecommerce, {email}!\n\n"\
