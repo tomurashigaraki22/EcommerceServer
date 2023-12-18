@@ -43,6 +43,92 @@ c.execute('CREATE TABLE IF NOT EXISTS shoppingcarts (id INTEGER PRIMARY KEY AUTO
 conn.commit()
 c.execute('CREATE TABLE IF NOT EXISTS orderwdp (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT, address JSON, trackingnumber TEXT, amount TEXT, items JSON)')
 conn.commit()
+c.execute('CREATE TABLE IF NOT EXISTS trackorders (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT, orderid TEXT, delivered TEXT, trackingid TEXT)')
+conn.commit()
+
+
+@app.route('/addtoTrack/<email>/<orderid>/', methods=['POST', 'GET'])
+def addtoTrack(email, orderid):
+    try:
+        conn = sqlite3.connect('./ecDB.db')
+        c = conn.cursor()
+
+        # Check if the email already has a tracking order
+        c.execute('SELECT orderid FROM trackorders WHERE email = ?', (email,))
+        cs = c.fetchone()
+
+        if cs is not None:
+            # If there is an existing tracking order, append the new orderid to it
+            existing_orderids = cs[0].split(', ')
+            existing_orderids.append(orderid)
+            updated_orderids = ', '.join(existing_orderids)
+
+            # Update the existing tracking order with the new orderid
+            c.execute('UPDATE trackorders SET orderid = ? WHERE email = ?', (updated_orderids, email))
+            conn.commit()
+            conn.close()
+
+            return {'status': 200, 'message': 'Added to tracking order successfully'}
+        else:
+            # If there is no existing tracking order, create a new one
+            delivered = 'False'
+            tid = generate_random_string()
+            print('Tid: '+tid)
+            c.execute('INSERT INTO trackorders (email, orderid, delivered, trackingid) VALUES (?, ?, ?, ?)', (email, orderid, delivered, tid))
+            conn.commit()
+            conn.close()
+
+            return {'status': 200, 'message': 'Added to tracking order successfully'}
+
+    except Exception as e:
+        return {'status': 500, 'error': str(e)}
+
+
+@app.route('/gettrackOrder', methods=['POST', 'GET'])
+def gettrackOrder():
+    try:
+        conn = sqlite3.connect('./ecDB.db')
+        c = conn.cursor()
+        email = request.form.get('email')
+        print('Email: ' + email)
+        # Select completed orders for the given email
+        c.execute('SELECT orderid FROM trackorders WHERE email = ?', (email,))
+        cs = c.fetchone()
+        print(cs)
+        if cs is not None:
+            order_ids = cs[0].split(', ')
+            order_list = []
+
+            for order_id in order_ids:
+                order_id = int(order_id)
+                conn = sqlite3.connect('./ecDB.db')
+                c = conn.cursor()
+                c.execute('SELECT * FROM posts WHERE id = ?', (order_id,))
+                product = c.fetchone()
+                conn.close()
+
+                if product:
+                    order_list.append({
+                        'id': product[0],
+                        'email': product[1],
+                        'img': product[2].replace('\\', '/'),
+                        'scorelvl': product[3],
+                        'caption': product[4],
+                        'colors': product[5],
+                        'size': product[6],
+                        'category': product[7],
+                        'stock_quantity': product[8],
+                        'timestamp': product[9],
+                        'price': product[10],
+                        'currency': product[11],
+                    })
+
+            return jsonify({'status': 200, 'orders': order_list})
+        else:
+            return jsonify({'status': 404, 'meaning': 'No completed orders found for the given email'})
+
+    except Exception as e:
+        return jsonify({'status': 500, 'error': str(e)})
 
 @app.route('/adminlogin', methods=['POST', 'GET'])
 def adminlogin():
@@ -791,6 +877,11 @@ def clearCart(email):
         msg2.body = message2
         mail.send(msg2)
         c = conn.cursor()
+        c.execute('SELECT products FROM shoppingcarts WHERE email = ?', (email,))
+        cs = c.fetchone()
+        for css in cs:
+            print(css)
+            addtoTrack(email, css)
         c.execute('UPDATE shoppingcarts SET products = NULL WHERE email = ?', (email,))
         conn.commit()
         conn.close()
