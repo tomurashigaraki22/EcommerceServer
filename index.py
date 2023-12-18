@@ -6,6 +6,7 @@ from git import Repo, GitCommandError
 from dotenv import load_dotenv
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
+from twilio.rest import Client
 import subprocess
 import datetime
 import jwt
@@ -25,6 +26,11 @@ app.config['MAIL_USE_SSL'] = True
 app.config['MAIL_USERNAME'] = 'Trollz.mallstore@gmail.com'
 app.config['MAIL_PASSWORD'] = 'zkhb hirb nmdc mbhz'
 mail = Mail(app)
+
+account_sid = 'ACd1d31fab44a914a7b7e84a02ccc1a344'
+auth_token = '981027194c5a53227327f421ccded8eb'
+twilio_phone_number = '+18317315755'
+client = Client(account_sid, auth_token)
 
 load_dotenv()
 
@@ -897,6 +903,7 @@ def signup():
         try:
             email = request.form.get('email')
             address = request.form.get('address')
+            phone_number = request.form.get('phone')
             conn = sqlite3.connect('./ecDB.db')
             c = conn.cursor()
             c.execute('SELECT * FROM auth WHERE email = ?', (email,))
@@ -908,7 +915,7 @@ def signup():
                 if '@gmail.com' in email:
                     conn = sqlite3.connect('./ecDB.db')
                     c = conn.cursor()
-                    c.execute('INSERT INTO auth (email, password, address) VALUES (?, ?, ?)', (email, password, address))
+                    c.execute('INSERT INTO auth (email, password, address, phonenumber) VALUES (?, ?, ?, ?)', (email, password, address, phone_number))
                     conn.commit()
                     conn.close()
                     payload = {
@@ -929,6 +936,12 @@ def signup():
                     msg.body = welcome_message
 
                     mail.send(msg)
+                    message = client.messages.create(
+                        body=welcome_message,
+                        from_=twilio_phone_number,
+                        to=phone_number
+                    )
+                    print(message.sid)
 
                     return jsonify({'message': 'Signup Successful', 'status': 200, 'token': jwt_token})
                 else:
