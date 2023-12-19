@@ -848,9 +848,11 @@ def login():
                 c.execute('SELECT * FROM auth WHERE email = ? AND password = ?', (email, password))
                 cs = c.fetchone()
                 print('reach3')
+                print(cs[3])
                 payload = {
                     'email': email,
                     'password': password,
+                    'address': cs[3]
                 }
                 print('reach4')
                 jwt_token = jwt.encode(payload, app.secret_key, algorithm='HS256')
@@ -874,14 +876,30 @@ def clearCart(email):
         conn = sqlite3.connect('./ecDB.db')
         cart = request.form.get('cart')
         address = request.form.get('address')
-        message = f"Order Completed: {cart}"
+
+        # Assuming cart is sent as a list of dictionaries
+        cart_items = cart
+
+        # Iterate through cart items and structure the message
+        message_body = "Order Completed:\n"
+        for item in cart_items:
+            caption = item.get('caption', 'N/A')
+            category = item.get('category', 'N/A')
+            price = item.get('price', 0)
+            quantity = item.get('quantity', 0)
+            message_body += f"Caption: {caption}, Category: {category}, Price: {price}, Quantity: {quantity}\n"
+
+        # Send order completion message to the user
         msg = Message('Trollz Ecommerce', sender='trollz.mallstore@gmail.com', recipients=[email])
-        msg.body = message
+        msg.body = message_body
         mail.send(msg)
-        message2 = f"New Order: {cart} \n Address: {address}"
+
+        # Send new order notification to the store
+        message2 = f"New Order:\n{message_body}\nAddress: {address}"
         msg2 = Message('New Order Placed', sender='trollz.mallstore@gmail.com', recipients=['trollz.mallstore@gmail.com'])
         msg2.body = message2
         mail.send(msg2)
+
         c = conn.cursor()
         c.execute('SELECT products FROM shoppingcarts WHERE email = ?', (email,))
         cs = c.fetchone()
@@ -894,6 +912,7 @@ def clearCart(email):
         return jsonify({'message': 'Cart cleared successfully', 'status': 200})
     except Exception as e:
         return jsonify({'message': 'Error while clearing the cart', 'exception': str(e), 'status': 500})
+
 
 
 @app.route('/signup', methods=['POST'])
