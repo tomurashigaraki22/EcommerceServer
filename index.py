@@ -874,24 +874,30 @@ def login():
 def clearCart(email):
     try:
         conn = sqlite3.connect('./ecDB.db')
+        print('Help')
         cart = request.form.get('cart')
+        print(request.form)
         address = request.form.get('address')
+        print(address)
 
-        # Assuming cart is sent as a list of dictionaries
-        cart_items = cart
+        # Parse cart as JSON
+        cart_items = json.loads(cart)
+        print(cart_items)
 
         # Iterate through cart items and structure the message
         message_body = "Order Completed:\n"
+        print(cart)
+        print(len(cart))
         for item in cart_items:
             caption = item.get('caption', 'N/A')
             category = item.get('category', 'N/A')
             price = item.get('price', 0)
             quantity = item.get('quantity', 0)
-            message_body += f"Caption: {caption}, Category: {category}, Price: {price}, Quantity: {quantity}\n"
-
+            message_body += f"\nCaption: {caption}, \nCategory: {category}, \nPrice: {price}, \nQuantity: {quantity}\n"
+            print(message_body)
         # Send order completion message to the user
         msg = Message('Trollz Ecommerce', sender='trollz.mallstore@gmail.com', recipients=[email])
-        msg.body = message_body
+        msg.body = message_body 
         mail.send(msg)
 
         # Send new order notification to the store
@@ -901,18 +907,14 @@ def clearCart(email):
         mail.send(msg2)
 
         c = conn.cursor()
-        c.execute('SELECT products FROM shoppingcarts WHERE email = ?', (email,))
-        cs = c.fetchone()
-        for css in cs:
-            print(css)
-            addtoTrack(email, css)
         c.execute('UPDATE shoppingcarts SET products = NULL WHERE email = ?', (email,))
         conn.commit()
+        print('HereI reached dw')
         conn.close()
         return jsonify({'message': 'Cart cleared successfully', 'status': 200})
     except Exception as e:
+        print('Error Message: ' + str(e))
         return jsonify({'message': 'Error while clearing the cart', 'exception': str(e), 'status': 500})
-
 
 
 @app.route('/signup', methods=['POST'])
