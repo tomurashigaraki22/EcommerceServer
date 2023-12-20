@@ -824,7 +824,32 @@ def addItem(email):
                 conn.close()
                 return jsonify({'message': 'Item added successfully', 'image_path': image_url}), 200
             else:
-                return jsonify({'message': 'User not found', 'status': 404}), 404
+                c.execute('SELECT * FROM authadmin WHERE email = ?', (email,))
+                cs = c.fetchone()
+                if cs is not None:
+                    items_dir = 'items'
+                    print('Here')
+                    print(request.files)
+                    current_timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S-%f')[:-3]  # Format timestamp
+                    filename = secure_filename(f"{current_timestamp}.png")
+                    if not os.path.exists(items_dir):
+                        os.makedirs(items_dir)
+                    print('Here2')
+                    image_path = os.path.join(items_dir, filename)
+                    print('Here3')
+                    image_data = request.files.get('image')  # Get the uploaded image data
+                    print(image_data)
+                    print('Here4')
+                    image_data.save(image_path)
+
+                    image_url = f"http://192.168.1.188:5442/{image_path.replace(os.path.sep, '/')}"
+                    print(image_url)
+                    c.execute('INSERT INTO posts (email, img, scorelvl, caption, colors, size, category, stock_quantity, timestamp, price, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (email, image_path, scorelvl, caption, colors, size, category, stock_quantity, current_timestamp, price, currency))
+                    conn.commit()
+                    conn.close()
+                    return jsonify({'message': 'Item added successfully', 'image_path': image_url}), 200
+                else:
+                    return jsonify({'message': 'User not found', 'status': 404}), 404
         else:
             return jsonify({'message': 'Category cannot be none', 'status': 404}), 404
     except Exception as e:
