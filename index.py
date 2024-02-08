@@ -453,27 +453,30 @@ def getAllUsers():
 
 @app.route('/deleteFromCart/<id>/<email>', methods=['POST', 'GET'])
 def deleteFromCart(id, email):
-    print(id, email)
     try:
         conn = sqlite3.connect('./ecDB.db')
         c = conn.cursor()
+
+        # Retrieve the list of products from the shopping cart
         c.execute('SELECT products FROM shoppingcarts WHERE email = ?', (email,))
         products = c.fetchone()
+
         if products is not None:
-            print(products)
             product_list = products[0].split(', ') if products and products[0] else []
+
             if id in product_list:
-                # Remove the product from the list
-                product_list.remove(id)
-                
-                # Convert the list back to a string
+                # Remove all instances of the product ID from the list
+                while id in product_list:
+                    product_list.remove(id)
+
+                # Join the remaining product IDs back into a string with commas
                 updated_products = ', '.join(product_list)
-                
-                # Update the shopping cart with the new product list
+
+                # Update the shopping cart with the updated product list
                 c.execute('UPDATE shoppingcarts SET products = ? WHERE email = ?', (updated_products, email))
                 conn.commit()
                 conn.close()
-                
+
                 return jsonify({'message': 'Item removed successfully', 'status': 200})
             else:
                 return jsonify({'message': 'Item not in cart', 'status': 404})
@@ -481,6 +484,7 @@ def deleteFromCart(id, email):
             return jsonify({'message': 'No products in cart', 'status': 409})
     except Exception as e:
         return jsonify({'Exception': str(e), 'Message': 'Exception Found'})
+
 
 
 @app.route('/search/<query>', methods=['GET', 'POST'])
@@ -636,8 +640,7 @@ def addToCart(id, email):
                 # Update the existing cart by adding the product ID
                 product_ids = cart[2].split(',') if cart[2] else []
                 product_ids.append(str(id))
-                updated_cart = ', '.join(product_ids)
-                print(updated_cart)
+                updated_cart = ','.join(product_ids)  # Join without spaces
                 c.execute('UPDATE shoppingcarts SET products = ? WHERE email = ?', (updated_cart, email))
 
             else:
@@ -651,7 +654,6 @@ def addToCart(id, email):
             return jsonify({'message': 'No such product', 'status': 404})
     except Exception as e:
         return jsonify({'message': 'Exception Found', 'exception': str(e), 'status': 409})
-
 
 
 @app.route('/getCartId/<email>', methods=['POST', 'GET'])
@@ -681,42 +683,52 @@ def getCartItems(email):
             cart_items_dict = {}  # Dictionary to store product IDs and their occurrences
 
             for product_id in product_ids:
-                product_id = int(product_id)  # Convert product_id to an integer
-                if product_id in cart_items_dict:
-                    cart_items_dict[product_id]['quantity'] += 1
-                    print('Quantity: ' + str(cart_items_dict[product_id]['quantity']))
-                else:
-                    conn = sqlite3.connect('./ecDB.db')
-                    c = conn.cursor()
-                    c.execute('SELECT * FROM posts WHERE id = ?', (product_id,))
-                    product = c.fetchone()
-                    conn.close()
+                # Add a check for an empty string before attempting conversion
+                if not product_id:
+                    continue  # Skip to the next iteration if product_id is empty
 
-                    if product:
-                        cart_items_dict[product_id] = {
-                            'id': product[0],
-                            'email': product[1],
-                            'img': product[2].replace('\\', '/'),
-                            'scorelvl': product[3],
-                            'caption': product[4],
-                            'colors': product[5],
-                            'size': product[6],
-                            'category': product[7],
-                            'stock_quantity': product[8],
-                            'timestamp': product[9],
-                            'price': product[10],
-                            'currency': product[11],
-                            'quantity': 1  # Set initial quantity to 1
-                        }
+                try:
+                    product_id = int(product_id)  # Convert product_id to an integer
+
+                    if product_id in cart_items_dict:
+                        cart_items_dict[product_id]['quantity'] += 1
+                        print('Quantity: ' + str(cart_items_dict[product_id]['quantity']))
+                    else:
+                        conn = sqlite3.connect('./ecDB.db')
+                        c = conn.cursor()
+                        c.execute('SELECT * FROM posts WHERE id = ?', (product_id,))
+                        product = c.fetchone()
+                        conn.close()
+
+                        if product:
+                            cart_items_dict[product_id] = {
+                                'id': product[0],
+                                'email': product[1],
+                                'img': product[2].replace('\\', '/'),
+                                'scorelvl': product[3],
+                                'caption': product[4],
+                                'colors': product[5],
+                                'size': product[6],
+                                'category': product[7],
+                                'stock_quantity': product[8],
+                                'timestamp': product[9],
+                                'price': product[10],
+                                'currency': product[11],
+                                'quantity': 1  # Set initial quantity to 1
+                            }
+
+                except ValueError as ve:
+                    print(f"Error converting {product_id} to int: {ve}")
+                    continue  # Skip to the next iteration in case of a conversion error
 
             cart_list = list(cart_items_dict.values())
 
             return jsonify({'message': 'Cart items retrieved successfully', 'cart_items': cart_list, 'status': 200})
         else:
-            return jsonify({'message': 'Cart is empty', 'status': 200})
+            return jsonify({'message': 'Cart is empty', 'status': 404})
     except Exception as e:
         return jsonify({'message': 'Error while retrieving cart items', 'exception': str(e)})
-
+        
 
 @app.route('/incQuantity/<id>/<email>', methods=['GET', 'POST'])
 def incQuantity(id, email):
@@ -837,7 +849,7 @@ def addItem(email):
                     print('Here2')
                     image_path = os.path.join(items_dir, filename)
                     print('Here3')
-                    image_data = request.files.get('image')  # Get the uploaded image data
+                    image_data = request.files.get('img')  # Get the uploaded image data
                     print(image_data)
                     print('Here4')
                     image_data.save(image_path)
@@ -863,36 +875,35 @@ def login():
         try:
             email = request.form.get('email')
             password = request.form.get('password')
-            print('reach')
-            print(email)
-            if '@gmail.com' in email:
-                print('mi')
-                conn = sqlite3.connect('./ecDB.db')
-                c = conn.cursor()
-                print('reach2')
-                c.execute('SELECT * FROM auth WHERE email = ? AND password = ?', (email, password))
-                cs = c.fetchone()
-                print('reach3')
-                print(cs[3])
+
+            if not email or not password:
+                return jsonify({'message': 'Email and password are required', 'status': 400})
+
+            if '@gmail.com' not in email:
+                return jsonify({'message': 'Not a valid email address', 'status': 400})
+
+            conn = sqlite3.connect('./ecDB.db')
+            c = conn.cursor()
+            c.execute('SELECT * FROM auth WHERE email = ? AND password = ?', (email, password))
+            cs = c.fetchone()
+
+            if cs is not None:
                 payload = {
                     'email': email,
                     'password': password,
                     'address': cs[3]
                 }
-                print('reach4')
                 jwt_token = jwt.encode(payload, app.secret_key, algorithm='HS256')
-                if cs is not None:
-                    return jsonify({'message': 'Login Successful', 'status': 200, 'token': jwt_token})
-                else:
-                    print('Status: 404')
-                    return jsonify({'message': 'Incorrect email or Password', 'status': 404})
+                return jsonify({'message': 'Login Successful', 'status': 200, 'token': jwt_token})
             else:
-                return jsonify({'message': 'Not a valid email address', 'status': 509})
+                return jsonify({'message': 'Incorrect email or password', 'status': 401})
 
+        except sqlite3.Error as e:
+            return jsonify({'message': 'Database error', 'exception': str(e), 'status': 500})
         except Exception as e:
-            return jsonify({'message': 'Error. Db may be busy', 'Exception': str(e)})
-    else:
-        return
+            return jsonify({'message': 'Internal Server Error', 'exception': str(e), 'status': 500})
+
+    return jsonify({'message': 'Method Not Allowed', 'status': 405})
     
 
 @app.route('/clearCart/<email>', methods=['POST', 'GET'])
