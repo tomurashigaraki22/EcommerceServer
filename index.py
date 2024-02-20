@@ -993,12 +993,6 @@ def signup():
                     msg.body = welcome_message
 
                     mail.send(msg)
-                    message = client.messages.create(
-                        body=welcome_message,
-                        from_=twilio_phone_number,
-                        to=phone_number
-                    )
-                    print(message.sid)
 
                     return jsonify({'message': 'Signup Successful', 'status': 200, 'token': jwt_token})
                 else:
