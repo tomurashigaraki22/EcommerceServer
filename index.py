@@ -640,7 +640,7 @@ def addToCart(id, email):
                 # Update the existing cart by adding the product ID
                 product_ids = cart[2].split(',') if cart[2] else []
                 product_ids.append(str(id))
-                updated_cart = ','.join(product_ids)  # Join without spaces
+                updated_cart = ', '.join(product_ids)  # Join without spaces
                 c.execute('UPDATE shoppingcarts SET products = ? WHERE email = ?', (updated_cart, email))
 
             else:
