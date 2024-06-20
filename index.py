@@ -40,6 +40,8 @@ conn = sqlite3.connect('./ecDB.db')
 c = conn.cursor()
 c.execute('CREATE TABLE IF NOT EXISTS authadmin (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT, password TEXT)')
 conn.commit()
+c.execute('CREATE TABLE IF NOT EXISTS otp (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT, otp TEXT)')
+conn.commit()
 c.execute('CREATE TABLE IF NOT EXISTS auth (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT, password TEXT)')
 print('Table Made')
 conn.commit()
@@ -669,7 +671,7 @@ def getCartId(email):
         conn.close()
         return jsonify({'ex': str(e)})
 
-@app.route('/getCartItems/<email>', methods=['GET', 'POST'])
+@app.route('/getCartItems/<email>', methods=['GET'])
 def getCartItems(email):
     try:
         conn = sqlite3.connect('./ecDB.db')
@@ -682,44 +684,48 @@ def getCartItems(email):
             product_ids = cart_data[0].split(', ')  # Assuming product IDs are stored as a comma-separated string
             cart_items_dict = {}  # Dictionary to store product IDs and their occurrences
 
+            # Count the frequency of each product ID
             for product_id in product_ids:
-                # Add a check for an empty string before attempting conversion
                 if not product_id:
-                    continue  # Skip to the next iteration if product_id is empty
-
+                    continue
                 try:
-                    product_id = int(product_id)  # Convert product_id to an integer
-
+                    product_id = int(product_id)
                     if product_id in cart_items_dict:
                         cart_items_dict[product_id]['quantity'] += 1
-                        print('Quantity: ' + str(cart_items_dict[product_id]['quantity']))
                     else:
-                        conn = sqlite3.connect('./ecDB.db')
-                        c = conn.cursor()
-                        c.execute('SELECT * FROM posts WHERE id = ?', (product_id,))
-                        product = c.fetchone()
-                        conn.close()
-
-                        if product:
-                            cart_items_dict[product_id] = {
-                                'id': product[0],
-                                'email': product[1],
-                                'img': product[2].replace('\\', '/'),
-                                'scorelvl': product[3],
-                                'caption': product[4],
-                                'colors': product[5],
-                                'size': product[6],
-                                'category': product[7],
-                                'stock_quantity': product[8],
-                                'timestamp': product[9],
-                                'price': product[10],
-                                'currency': product[11],
-                                'quantity': 1  # Set initial quantity to 1
-                            }
-
+                        cart_items_dict[product_id] = {'quantity': 1}
                 except ValueError as ve:
                     print(f"Error converting {product_id} to int: {ve}")
-                    continue  # Skip to the next iteration in case of a conversion error
+                    continue
+
+            # Fetch product details for each unique product ID
+            for product_id in cart_items_dict.keys():
+                try:
+                    conn = sqlite3.connect('./ecDB.db')
+                    c = conn.cursor()
+                    c.execute('SELECT * FROM posts WHERE id = ?', (product_id,))
+                    product = c.fetchone()
+                    conn.close()
+
+                    if product:
+                        cart_items_dict[product_id].update({
+                            'id': product[0],
+                            'email': product[1],
+                            'img': product[2].replace('\\', '/'),
+                            'scorelvl': product[3],
+                            'caption': product[4],
+                            'colors': product[5],
+                            'size': product[6],
+                            'category': product[7],
+                            'stock_quantity': product[8],
+                            'timestamp': product[9],
+                            'price': product[10],
+                            'currency': product[11]
+                        })
+
+                except Exception as e:
+                    print(f"Error fetching product details for product_id {product_id}: {e}")
+                    continue
 
             cart_list = list(cart_items_dict.values())
 
@@ -728,7 +734,7 @@ def getCartItems(email):
             return jsonify({'message': 'Cart is empty', 'status': 404})
     except Exception as e:
         return jsonify({'message': 'Error while retrieving cart items', 'exception': str(e)})
-        
+
 
 @app.route('/incQuantity/<id>/<email>', methods=['GET', 'POST'])
 def incQuantity(id, email):
@@ -905,52 +911,123 @@ def login():
 
     return jsonify({'message': 'Method Not Allowed', 'status': 405})
     
+@app.route('/sendOTP/<email>', methods=['POST', 'GET'])
+def sendOTP(email):
+    try:
+        # Generate a random 6-digit OTP
+        otp = ''.join(random.choices('0123456789', k=6))
+
+        # Here you would send the OTP to the provided email address
+        # For simplicity, let's just print it to the console
+        print(f"OTP for {email}: {otp}")
+        conn = sqlite3.connect('./ecDB.db')
+        c = conn.cursor()
+        c.execute('INSERT INTO otp (email, otp) VALUES (?,?)', (email, otp))
+        conn.commit()
+        conn.close()
+        msg = Message('Trollz Shopping Store', sender='trollz.mallstore@gmail.com', recipients=[email])
+        msg_body = f"\n Your One-Time Password is {otp} \n\n\n\n Make sure to not share this code with anyone"
+        msg.body = msg_body
+        mail.send(msg)
+        return jsonify({"status": 200, "success": "OTP sent successfully", "otp": otp})
+    except Exception as e:
+        return jsonify({"status": 509, "success": "Tf is wrong with you sir?"})
+
+
+@app.route('/verifyOTP/<email>', methods=['GET', 'POST'])
+def verifyOTP(email):
+    try:
+        otp = request.form.get('otp')
+        conn = sqlite3.connect('./ecDB.db')
+        c = conn.cursor()
+        # Select the OTP with the highest ID for the specified email
+        c.execute('SELECT otp FROM otp WHERE email = ? ORDER BY id DESC LIMIT 1', (email,))
+        cs = c.fetchone()
+
+        if cs:
+            if cs[0] == otp:
+                # OTP is correct, perform the desired action (e.g., mark the email as verified)
+                return jsonify({"status": 200})
+            else:
+                return jsonify({"status": 509})
+        else:
+                return jsonify({"status": 404})
+
+    except Exception as e:
+        return str(e)
+
 
 @app.route('/clearCart/<email>', methods=['POST', 'GET'])
 def clearCart(email):
     try:
         conn = sqlite3.connect('./ecDB.db')
-        print('Help')
         cart = request.form.get('cart')
-        print(request.form)
         address = request.form.get('address')
-        print(address)
 
         # Parse cart as JSON
         cart_items = json.loads(cart)
-        print(cart_items)
 
         # Iterate through cart items and structure the message
-        message_body = "Order Completed:\n"
-        print(cart)
-        print(len(cart))
+        message_body = """
+        <html>
+            <body style="font-family: Arial, sans-serif;">
+                <h2 style="text-align: center; color: #4682B4;">Order Completed</h2>
+                <p>Thank you for your purchase! Here are the details of your order:</p>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th style="border: 1px solid #dddddd; text-align: left; padding: 8px;">Caption</th>
+                            <th style="border: 1px solid #dddddd; text-align: left; padding: 8px;">Category</th>
+                            <th style="border: 1px solid #dddddd; text-align: left; padding: 8px;">Price</th>
+                            <th style="border: 1px solid #dddddd; text-align: left; padding: 8px;">Quantity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        """
+
         for item in cart_items:
             caption = item.get('caption', 'N/A')
             category = item.get('category', 'N/A')
             price = item.get('price', 0)
             quantity = item.get('quantity', 0)
-            message_body += f"\nCaption: {caption}, \nCategory: {category}, \nPrice: {price}, \nQuantity: {quantity}\n"
-            print(message_body)
+            message_body += f"""
+                        <tr>
+                            <td style="border: 1px solid #dddddd; text-align: left; padding: 8px;">{caption}</td>
+                            <td style="border: 1px solid #dddddd; text-align: left; padding: 8px;">{category}</td>
+                            <td style="border: 1px solid #dddddd; text-align: left; padding: 8px;">{price}</td>
+                            <td style="border: 1px solid #dddddd; text-align: left; padding: 8px;">{quantity}</td>
+                        </tr>
+            """
+
+        message_body += f"""
+                    </tbody>
+                </table>
+                <p style="margin-top: 20px;">Delivery Address: <strong>{address}</strong></p>
+                <p>Thank you for shopping with us!</p>
+                <p style="text-align: center; color: #4682B4; font-size: 20px;">Trollz Ecommerce</p>
+            </body>
+        </html>
+        """
+
         # Send order completion message to the user
         msg = Message('Trollz Ecommerce', sender='trollz.mallstore@gmail.com', recipients=[email])
-        msg.body = message_body 
+        msg.html = message_body
         mail.send(msg)
 
         # Send new order notification to the store
         message2 = f"New Order:\n{message_body}\nAddress: {address}"
         msg2 = Message('New Order Placed', sender='trollz.mallstore@gmail.com', recipients=['trollz.mallstore@gmail.com'])
-        msg2.body = message2
+        msg2.html = message2
         mail.send(msg2)
 
         c = conn.cursor()
         c.execute('UPDATE shoppingcarts SET products = NULL WHERE email = ?', (email,))
         conn.commit()
-        print('HereI reached dw')
         conn.close()
         return jsonify({'message': 'Cart cleared successfully', 'status': 200})
     except Exception as e:
-        print('Error Message: ' + str(e))
         return jsonify({'message': 'Error while clearing the cart', 'exception': str(e), 'status': 500})
+
 
 
 @app.route('/signup', methods=['POST'])
@@ -1011,6 +1088,7 @@ def changePassword(email):
         cs = c.fetchone()
         if cs is not None:
             if cs[2] == password:
+                print("CS2: " + cs[2] + "PASsword: " + password)
                 c.execute('UPDATE auth SET password = ? WHERE email = ?', (changedPassword, email))
                 conn.commit()
                 conn.close()
@@ -1131,5 +1209,5 @@ def push_to_github():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5442, use_reloader=True)
+    app.run(host='0.0.0.0', port=5445, use_reloader=True, debug=True)
 
