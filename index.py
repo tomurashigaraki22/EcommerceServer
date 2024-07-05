@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request, send_from_directory, make_response, send_file
 import sqlite3
+import os
 import shutil
 import json
 from git import Repo, GitCommandError
@@ -15,6 +16,7 @@ import string
 from werkzeug.utils import secure_filename
 from flask_mail import Mail, Message
 import os
+import base64
 
 
 app = Flask(__name__)
@@ -337,7 +339,7 @@ def checkout(email):
                         mPrice = price
                     else:
                         exchange_api_url = f"http://192.168.1.188:3000/NGNTOUSD"
-                        response = requests.get(exchange_api_url)
+                        response = request.get(exchange_api_url)
 
                         if response.status_code == 200:
                             data = response.json()
@@ -460,13 +462,22 @@ def deleteFromCart(id, email):
         c = conn.cursor()
 
         # Retrieve the list of products from the shopping cart
+
+        # Retrieve the list of products from the shopping cart
         c.execute('SELECT products FROM shoppingcarts WHERE email = ?', (email,))
         products = c.fetchone()
+
 
         if products is not None:
             product_list = products[0].split(', ') if products and products[0] else []
 
+
             if id in product_list:
+                # Remove all instances of the product ID from the list
+                while id in product_list:
+                    product_list.remove(id)
+
+                # Join the remaining product IDs back into a string with commas
                 # Remove all instances of the product ID from the list
                 while id in product_list:
                     product_list.remove(id)
@@ -475,9 +486,12 @@ def deleteFromCart(id, email):
                 updated_products = ', '.join(product_list)
 
                 # Update the shopping cart with the updated product list
+
+                # Update the shopping cart with the updated product list
                 c.execute('UPDATE shoppingcarts SET products = ? WHERE email = ?', (updated_products, email))
                 conn.commit()
                 conn.close()
+
 
                 return jsonify({'message': 'Item removed successfully', 'status': 200})
             else:
@@ -486,6 +500,7 @@ def deleteFromCart(id, email):
             return jsonify({'message': 'No products in cart', 'status': 409})
     except Exception as e:
         return jsonify({'Exception': str(e), 'Message': 'Exception Found'})
+
 
 
 
@@ -528,7 +543,6 @@ def search(query):
 def getItems4():
     print('Fins')
     try:
-        email = request.form.get('email')
         conn = sqlite3.connect('./ecDB.db')
         c = conn.cursor()
         c.execute('SELECT * FROM posts ORDER BY id DESC LIMIT 4')
@@ -643,6 +657,7 @@ def addToCart(id, email):
                 product_ids = cart[2].split(',') if cart[2] else []
                 product_ids.append(str(id))
                 updated_cart = ', '.join(product_ids)  # Join without spaces
+                updated_cart = ', '.join(product_ids)  # Join without spaces
                 c.execute('UPDATE shoppingcarts SET products = ? WHERE email = ?', (updated_cart, email))
 
             else:
@@ -727,14 +742,19 @@ def getCartItems(email):
                     print(f"Error fetching product details for product_id {product_id}: {e}")
                     continue
 
+                except ValueError as ve:
+                    print(f"Error converting {product_id} to int: {ve}")
+                    continue  # Skip to the next iteration in case of a conversion error
+
             cart_list = list(cart_items_dict.values())
 
             return jsonify({'message': 'Cart items retrieved successfully', 'cart_items': cart_list, 'status': 200})
         else:
             return jsonify({'message': 'Cart is empty', 'status': 404})
+            return jsonify({'message': 'Cart is empty', 'status': 404})
     except Exception as e:
         return jsonify({'message': 'Error while retrieving cart items', 'exception': str(e)})
-
+        
 
 @app.route('/incQuantity/<id>/<email>', methods=['GET', 'POST'])
 def incQuantity(id, email):
@@ -808,11 +828,8 @@ def addItem(email):
         category = request.form.get('category')
         price = request.form.get('price')
         currency = request.form.get('currency')
-        print('Pass')
-        print(request.files)
-        print(category)
-
         stock_quantity = request.form.get('stock_quantity')
+        image_base64 = request.form.get('image')
 
         if category is not None:
             conn = sqlite3.connect('./ecDB.db')
@@ -821,54 +838,49 @@ def addItem(email):
             cs = c.fetchone()
             if cs is not None:
                 items_dir = 'items'
-                print('Here')
-                print(request.files)
                 current_timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S-%f')[:-3]  # Format timestamp
                 filename = secure_filename(f"{current_timestamp}.png")
                 if not os.path.exists(items_dir):
                     os.makedirs(items_dir)
-                print('Here2')
+                
                 image_path = os.path.join(items_dir, filename)
-                print('Here3')
-                image_data = request.files.get('image')  # Get the uploaded image data
-                print(image_data)
-                print('Here4')
-                image_data.save(image_path)
+                image_data = base64.b64decode(image_base64.split(',')[1])
+                with open(image_path, 'wb') as f:
+                    f.write(image_data)
 
                 image_url = f"http://192.168.1.188:5442/{image_path.replace(os.path.sep, '/')}"
-                print(image_url)
                 c.execute('INSERT INTO posts (email, img, scorelvl, caption, colors, size, category, stock_quantity, timestamp, price, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (email, image_path, scorelvl, caption, colors, size, category, stock_quantity, current_timestamp, price, currency))
                 conn.commit()
                 conn.close()
-                return jsonify({'message': 'Item added successfully', 'image_path': image_url}), 200
+                downloaditems('Godwithus22')
+                return jsonify({'message': 'Item added successfully', 'image_path': image_url, 'status': 200}), 200
             else:
                 c.execute('SELECT * FROM authadmin WHERE email = ?', (email,))
                 cs = c.fetchone()
                 if cs is not None:
                     items_dir = 'items'
-                    print('Here')
-                    print(request.files)
                     current_timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S-%f')[:-3]  # Format timestamp
                     filename = secure_filename(f"{current_timestamp}.png")
                     if not os.path.exists(items_dir):
                         os.makedirs(items_dir)
-                    print('Here2')
+                    
                     image_path = os.path.join(items_dir, filename)
-                    print('Here3')
-                    image_data = request.files.get('img')  # Get the uploaded image data
-                    print(image_data)
-                    print('Here4')
-                    image_data.save(image_path)
+                    image_data = base64.b64decode(image_base64.split(',')[1])
+                    with open(image_path, 'wb') as f:
+                        f.write(image_data)
 
                     image_url = f"http://192.168.1.188:5442/{image_path.replace(os.path.sep, '/')}"
-                    print(image_url)
                     c.execute('INSERT INTO posts (email, img, scorelvl, caption, colors, size, category, stock_quantity, timestamp, price, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (email, image_path, scorelvl, caption, colors, size, category, stock_quantity, current_timestamp, price, currency))
                     conn.commit()
                     conn.close()
-                    return jsonify({'message': 'Item added successfully', 'image_path': image_url}), 200
+                    print("Successful dawg")
+                    downloaditems('Godwithus22')
+                    return jsonify({'sss': 'Item added successfully', 'image_path': image_url, 'status': 200}), 200
                 else:
+                    print("Error 404")
                     return jsonify({'message': 'User not found', 'status': 404}), 404
         else:
+            print("2nd error 404")
             return jsonify({'message': 'Category cannot be none', 'status': 404}), 404
     except Exception as e:
         return jsonify({'message':'Error Somewhere', 'Exception': str(e)})
@@ -881,7 +893,6 @@ def login():
         try:
             email = request.form.get('email')
             password = request.form.get('password')
-
             if not email or not password:
                 return jsonify({'message': 'Email and password are required', 'status': 400})
 
@@ -903,7 +914,6 @@ def login():
                 return jsonify({'message': 'Login Successful', 'status': 200, 'token': jwt_token})
             else:
                 return jsonify({'message': 'Incorrect email or password', 'status': 401})
-
         except sqlite3.Error as e:
             return jsonify({'message': 'Database error', 'exception': str(e), 'status': 500})
         except Exception as e:
@@ -1144,21 +1154,19 @@ def download_db(password):
 @app.route('/downloaditems/<password>', methods=['GET', 'POST'])
 def downloaditems(password):
     try:
-        # Specify the path to the 'items' folder
-        items_folder_path = './'
+        items_folder_path = './items'
         if password == 'Godwithus22':
-        
-        # Create a temporary zip file
             zip_file_path = '/tmp/items.zip'
             shutil.make_archive(zip_file_path[:-4], 'zip', items_folder_path)
 
-            # Set up the response headers
+            # Email the zipped file
+            send_email_with_attachment(zip_file_path)
+
             headers = {
                 'Content-Disposition': 'attachment; filename=items.zip',
                 'Content-Type': 'application/zip',
             }
 
-            # Send the zip file as a response
             response = send_file(zip_file_path, as_attachment=True)
             return response
         else:
@@ -1166,6 +1174,21 @@ def downloaditems(password):
     except Exception as e:
         return jsonify({'message': 'Error while downloading the items folder', 'status': 500, 'Exception': str(e)})
 
+def send_email_with_attachment(file_path):
+    try:
+        msg = Message(
+            'Zipped Items Folder',
+            sender='Trollz.mallstore@gmail.com',
+            recipients=['emmanuelhudson355@gmail.com']
+        )
+        msg.body = 'Please find the zipped items folder attached.'
+
+        with app.open_resource(file_path) as fp:
+            msg.attach('items.zip', 'application/zip', fp.read())
+
+        mail.send(msg)
+    except Exception as e:
+        print(f"Failed to send email: {str(e)}")
 @app.route('/push-to-github', methods=['GET'])
 def push_to_github():
     try:
